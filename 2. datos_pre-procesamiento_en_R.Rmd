@@ -1,0 +1,93 @@
+---
+title: "Preparación de los datos"
+output: pdf_document
+date: "2024-05-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
+
+library(readr)
+library(caret)
+library(tidyverse)
+library(recipes)
+```
+
+Se cargan los datos, se filtran para obtener solo el año 2023, y se elimina la columna año.
+
+```{r}
+
+d1 <- as.data.frame(read_csv("df_editado.csv"))
+
+d1 <- subset(d1, `Año`== 2023)
+d1$`Año` <- NULL
+
+```
+
+Se eliminan las filas con missing, se cambian los nombres de las columnas, y se eliminan los espacios en los valores de todas las columnas.
+
+```{r}
+
+d1 <- na.omit(d1)
+
+colnames(d1) <- c("Transporte_", "Mes_", "RegionOrigen_", "MotivoViaje_", 
+                  "RegionHospedaje_", "RangoEdad_")
+
+for (i in 1:ncol(d1)) {
+  
+  d1[,i] <- gsub(" ", "", d1[,i])
+  print(table(d1[,i]))
+}
+
+```
+
+Se convierten las variables caracter en factores, la variable edad se convierte a numérica y se crea una receta "objeto_recipe" para procesar los datos. 
+
+```{r}
+
+d1 <- d1 %>% 
+  mutate_if(is.character, as.factor)
+
+d1$RangoEdad_ <- as.numeric(d1$RangoEdad_)
+
+objeto_recipe <- recipe(formula = Transporte_ ~ ., data =  d1)
+
+```
+
+Se utiliza la receta para convertir a las variables nominales en dummys.
+
+```{r}
+
+objeto_recipe <- objeto_recipe %>% 
+  step_dummy(all_nominal())
+
+trained_recipe <- prep(objeto_recipe, training = d1)
+
+datos <- bake(trained_recipe, new_data = d1)
+
+```
+
+Se extrae una muestra aleatoria de 50mil observaciones.
+
+```{r}
+
+d1 <- datos[sample(nrow(datos), 50000, replace = F), ]
+
+```
+
+Se observa una muestra de una de las bases de datos.
+
+```{r}
+
+head(d1, 5)
+
+```
+
+Se exportan los datos.
+
+```{r}
+
+openxlsx::write.xlsx(d1, "Datos.xlsx")
+
+```
+
